@@ -136,16 +136,23 @@ class PolarEngine(private val context: Context) {
                 }
 
                 override fun deviceConnecting(polarDeviceInfo: PolarDeviceInfo) {
-                    scope.launch { mutable.update { it.copy(status = "Connecting to ${polarDeviceInfo.deviceId}") } }
+                    scope.launch {
+                        if (state.value.deviceId == polarDeviceInfo.deviceId) {
+                            mutable.update { it.copy(status = "Connecting to ${polarDeviceInfo.deviceId}") }
+                        }
+                    }
                 }
 
                 override fun deviceConnected(polarDeviceInfo: PolarDeviceInfo) {
                     scope.launch {
+                        if (state.value.deviceId != polarDeviceInfo.deviceId) return@launch
                         connectionTimeout?.cancel()
                         mutable.update { it.copy(deviceId = polarDeviceInfo.deviceId, status = "Preparing ECG and RR streams") }
                         connectionTimeout = scope.launch {
                             delay(30_000)
-                            if (!state.value.ready) fail("Sensor streams did not become ready. Reconnect the H10.")
+                            if (state.value.deviceId == polarDeviceInfo.deviceId && !state.value.ready) {
+                                fail("Sensor streams did not become ready. Reconnect the H10.")
+                            }
                         }
                     }
                 }
@@ -159,7 +166,9 @@ class PolarEngine(private val context: Context) {
                 }
 
                 override fun batteryLevelReceived(identifier: String, level: Int) {
-                    scope.launch { mutable.update { it.copy(battery = level) } }
+                    scope.launch {
+                        if (state.value.deviceId == identifier) mutable.update { it.copy(battery = level) }
+                    }
                 }
 
                 override fun bleSdkFeatureReady(identifier: String, feature: PolarBleApi.PolarBleSdkFeature) {
@@ -209,14 +218,17 @@ class PolarEngine(private val context: Context) {
         stopScan()
         mutable.update { it.copy(deviceId = id, status = "Connecting to $id", error = null, report = null) }
         scope.launch {
+            connectionTimeout?.cancel()
+            connectionTimeout = scope.launch {
+                delay(30_000)
+                if (state.value.deviceId == id && !state.value.ready) {
+                    fail("Connection timed out. Wet the strap electrodes and reconnect.")
+                }
+            }
             attempt("Connection failed") { sdk().connectToDevice(id) }
             if (state.value.error != null) {
+                connectionTimeout?.cancel()
                 mutable.update { it.copy(deviceId = null) }
-            } else {
-                connectionTimeout = scope.launch {
-                    delay(30_000)
-                    if (!state.value.ready) fail("Connection timed out. Wet the strap electrodes and reconnect.")
-                }
             }
         }
     }
