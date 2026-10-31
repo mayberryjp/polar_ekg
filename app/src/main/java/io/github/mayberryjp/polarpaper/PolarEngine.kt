@@ -59,6 +59,7 @@ class PolarEngine(private val context: Context) {
     val store = SessionStore(context)
     private var api: PolarBleApi? = null
     private var scan: Job? = null
+    private var scanTimeout: Job? = null
     private var hrJob: Job? = null
     private var ecgJob: Job? = null
     private var connectionTimeout: Job? = null
@@ -78,8 +79,10 @@ class PolarEngine(private val context: Context) {
     init {
         scope.launch {
             attempt("Unable to open session history") {
-                store.recover()
-                refreshHistory()
+                sessionLock.withLock {
+                    store.recover()
+                    refreshHistory()
+                }
             }
         }
         scope.launch {
@@ -173,13 +176,16 @@ class PolarEngine(private val context: Context) {
             }
             mutable.update { it.copy(scanning = false) }
         }
-        scope.launch {
+        scanTimeout?.cancel()
+        scanTimeout = scope.launch {
             delay(15_000)
             stopScan()
         }
     }
 
     fun stopScan() {
+        scanTimeout?.cancel()
+        scanTimeout = null
         scan?.cancel()
         scan = null
         mutable.update { it.copy(scanning = false) }
@@ -207,6 +213,7 @@ class PolarEngine(private val context: Context) {
         hrJob = scope.launch {
             try {
                 sdk().startHrStreaming(id).collect { packet ->
+                    if (packet.samples.isEmpty()) return@collect
                     val now = SystemClock.elapsedRealtime()
                     val gap = lastHr == 0L || now - lastHr > 5000
                     lastHr = now
@@ -378,6 +385,8 @@ class PolarEngine(private val context: Context) {
         scope.launch {
             attempt("Unable to delete session") {
                 store.delete(id)
+                val cached = java.io.File(java.io.File(context.cacheDir, "reports"), "polar-session-$id.zip")
+                check(!cached.exists() || cached.delete()) { "Session deleted, but cached export could not be removed" }
                 refreshHistory()
                 mutable.update { it.copy(report = null) }
             }
