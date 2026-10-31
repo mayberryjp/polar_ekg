@@ -59,11 +59,14 @@ No silent auto-reconnect or joining data across separate captures. On process
 termination, committed samples remain and the next app launch marks the session
 interrupted. OS force-stop/power loss may lose the last in-flight transaction.
 Normal finish waits for writes before reporting. Storage failures are surfaced.
+Live preview disconnects when the app leaves the foreground without an active
+recording, to avoid holding the sensor and draining its battery unnecessarily.
 
 ## Build
 
 Use Android Studio, **JDK 21**, Android SDK platform **35** and build-tools **35.0.0**.
-The checked-in Gradle 8.11.1 wrapper checks its distribution SHA-256.
+The checked-in Gradle 8.13 wrapper checks its distribution SHA-256. AGP 8.13.2
+supports the SDK/app's Kotlin 2.3 metadata.
 
 Windows:
 

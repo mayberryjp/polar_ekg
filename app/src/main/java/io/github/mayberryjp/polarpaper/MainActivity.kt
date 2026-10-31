@@ -77,17 +77,21 @@ class MainActivity : ComponentActivity() {
                 PolarScreen(state, engine,
                     onScan = { withBluetooth { engine.scanDevices() } },
                     onConnect = { id -> withBluetooth { engine.connect(id) } },
-                    onRecord = {
-                        withBluetooth {
-                            try {
-                                ContextCompat.startForegroundService(this, Intent(this, RecordingService::class.java))
-                            } catch (e: Exception) { engine.showError("Unable to start recording service: ${e.message}", e) }
-                        }
-                    },
+                    onRecord = { withBluetooth(engine::requestSession) },
                     onExport = ::export,
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        engine.setForegroundVisible(true)
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations) engine.setForegroundVisible(false)
+        super.onStop()
     }
 
     private fun requiredPermissions() = if (Build.VERSION.SDK_INT >= 31) {
