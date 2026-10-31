@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -18,7 +19,7 @@ import androidx.compose.ui.unit.dp
 fun EcgPaper(samples: List<EcgPoint>, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text("25 mm/s  |  10 mm/mV  |  1 mV calibration  |  schematic grid")
-        Canvas(Modifier.fillMaxWidth().height(240.dp).background(Color(0xFFFFF8F8))) {
+        Canvas(Modifier.fillMaxWidth().height(240.dp).clipToBounds().background(Color(0xFFFFF8F8))) {
             val mm = 4.dp.toPx()
             val minor = Color(0xFFF5DCDD)
             val major = Color(0xFFE9AFB4)
